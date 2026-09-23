@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+*/node_modules/
+package-lock.json
+
+# Production Builds
+dist/
+*/dist/
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+*.env
+!*.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# System and Temporary
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+scratch/
+
+# Large media & docs
+*.mp4
+*.jpg
+*.jpeg
+*.png
+*.pptx
+
