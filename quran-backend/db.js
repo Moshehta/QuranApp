@@ -1,27 +1,25 @@
-const sql = require('mssql');
+const { Pool } = require('pg');
 require('dotenv').config();
 
-const config = {
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  server: process.env.DB_SERVER || 'localhost',
-  database: process.env.DB_NAME || 'QuranDB',
-  port: parseInt(process.env.DB_PORT) || 1433,
-  options: {
-    encrypt: false,
-    trustServerCertificate: true,
-    enableArithAbort: true,
-  },
-};
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
 
-let pool;
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle pg client', err);
+});
+
+async function query(text, params = []) {
+  return pool.query(text, params);
+}
 
 async function getPool() {
-  if (!pool) {
-    pool = await sql.connect(config);
-    console.log('✅ تم الاتصال بقاعدة البيانات');
-  }
   return pool;
 }
 
-module.exports = { getPool, sql };
+module.exports = {
+  pool,
+  query,
+  getPool
+};

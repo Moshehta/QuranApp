@@ -1,14 +1,10 @@
 @echo off
-chcp 65001 > nul
 cd /d "%~dp0"
-title رفع المشروع على GitHub
+title Push to GitHub
 
 echo ====================================
-echo    رفع المشروع على GitHub
+echo    Pushing Quran App to GitHub...
 echo ====================================
-echo.
-
-echo جاري الاتصال بـ GitHub ورفع الكود...
 echo.
 
 "C:\Program Files\Git\cmd\git.exe" branch -M main
@@ -16,6 +12,6 @@ echo.
 
 echo.
 echo ====================================
-echo  اكتمل الأمر. اضغط أي زر للإغلاق.
+echo  Finished. Press any key to close.
 echo ====================================
 pause

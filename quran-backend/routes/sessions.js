@@ -1,5 +1,5 @@
 const express = require('express');
-const { getPool, sql } = require('../db');
+const { query } = require('../db');
 const { authMiddleware, adminOnly } = require('../middleware/auth');
 const { checkSelfOrSibling } = require('../utils/siblingHelper');
 const router = express.Router();
@@ -11,46 +11,41 @@ router.get('/student/:studentId', authMiddleware, async (req, res) => {
 
   // الطالب أو ولي الأمر يقدر يشوف فقط أبناءه أو نفسه
   if (req.user.role === 'student' || req.user.role === 'parent') {
-    const pool = await getPool();
-    const linked = await pool.request()
-      .input('userId', sql.Int, req.user.id)
-      .input('studentId', sql.Int, studentId)
-      .query('SELECT 1 FROM ParentStudents WHERE userId=@userId AND studentId=@studentId');
-    if (linked.recordset.length === 0)
+    const linked = await query('SELECT 1 FROM "ParentStudents" WHERE "userId" = $1 AND "studentId" = $2', [req.user.id, studentId]);
+    if (linked.rows.length === 0)
       return res.status(403).json({ message: 'غير مسموح' });
   }
 
   try {
-    const pool = await getPool();
-    let query;
+    let result;
     if (months === 'last2') {
       // آخر جلستين مرتبين تصاعدياً من الأقدم للأحدث
-      query = `
+      result = await query(`
         SELECT * FROM (
-          SELECT TOP 2 * FROM Sessions
-          WHERE studentId = @studentId
-          ORDER BY sessionDate DESC, id DESC
+          SELECT * FROM "Sessions"
+          WHERE "studentId" = $1
+          ORDER BY "sessionDate" DESC, "id" DESC
+          LIMIT 2
         ) sub
-        ORDER BY sessionDate ASC, id ASC
-      `;
+        ORDER BY "sessionDate" ASC, "id" ASC
+      `, [studentId]);
     } else {
       let dateFilter = '';
+      const params = [studentId];
       if (months && months !== 'all') {
-        dateFilter = `AND sessionDate >= DATEADD(MONTH, -${parseInt(months)}, GETDATE())`;
+        params.push(parseInt(months, 10));
+        dateFilter = `AND "sessionDate" >= CURRENT_DATE - ($2 || ' months')::interval`;
       }
-      query = `
-        SELECT * FROM Sessions
-        WHERE studentId = @studentId ${dateFilter}
-        ORDER BY sessionDate ASC, id ASC
-      `;
+      result = await query(`
+        SELECT * FROM "Sessions"
+        WHERE "studentId" = $1 ${dateFilter}
+        ORDER BY "sessionDate" ASC, "id" ASC
+      `, params);
     }
 
-    const result = await pool.request()
-      .input('studentId', sql.Int, studentId)
-      .query(query);
-
-    res.json(result.recordset);
+    res.json(result.rows);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: 'خطأ في جلب الجلسات' });
   }
 });
@@ -66,22 +61,18 @@ router.post('/:id/madi', authMiddleware, async (req, res) => {
   const { madiMistakes, madiFormations, madiHeardBy, madiHeardByName, madiGrade } = req.body;
 
   try {
-    const pool = await getPool();
-
     // 1. جلب بيانات الجلسة للتأكد من الطالب
-    const sessionRes = await pool.request()
-      .input('id', sql.Int, sessionId)
-      .query('SELECT * FROM Sessions WHERE id = @id');
+    const sessionRes = await query('SELECT * FROM "Sessions" WHERE "id" = $1', [sessionId]);
 
-    if (sessionRes.recordset.length === 0) {
+    if (sessionRes.rows.length === 0) {
       return res.status(404).json({ message: 'الجلسة غير موجودة' });
     }
 
-    const session = sessionRes.recordset[0];
+    const session = sessionRes.rows[0];
 
     // 2. إذا كان المُسمّع طالب محفظ، نتأكد أنه ليس نفسه أو أحد إخوته
     if (req.user.role === 'student_teacher' || req.user.role === 'superadmin') {
-      const siblingCheck = await checkSelfOrSibling(pool, req.user.id, session.studentId);
+      const siblingCheck = await checkSelfOrSibling(null, req.user.id, session.studentId);
       if (siblingCheck.isBlocked) {
         return res.status(403).json({
           message: siblingCheck.reason === 'self'
@@ -95,30 +86,28 @@ router.post('/:id/madi', authMiddleware, async (req, res) => {
     const finalHeardBy = madiHeardBy || req.user.id;
     const finalHeardByName = madiHeardByName || req.user.name;
 
-    // 4. التحديث في قاعدة البيانات
-    const request = pool.request()
-      .input('id', sql.Int, sessionId)
-      .input('madiMistakes', sql.Int, madiMistakes !== undefined && madiMistakes !== '' ? parseInt(madiMistakes, 10) : null)
-      .input('madiFormations', sql.Int, madiFormations !== undefined && madiFormations !== '' ? parseInt(madiFormations, 10) : null)
-      .input('madiHeardBy', sql.Int, finalHeardBy)
-      .input('madiHeardByName', sql.NVarChar, finalHeardByName);
+    const parsedMistakes = madiMistakes !== undefined && madiMistakes !== '' ? parseInt(madiMistakes, 10) : null;
+    const parsedFormations = madiFormations !== undefined && madiFormations !== '' ? parseInt(madiFormations, 10) : null;
 
+    const params = [parsedMistakes, parsedFormations, finalHeardBy, finalHeardByName];
     let updateSql = `
-      UPDATE Sessions SET
-        madiMistakes = @madiMistakes,
-        madiFormations = @madiFormations,
-        madiHeardBy = @madiHeardBy,
-        madiHeardByName = @madiHeardByName
+      UPDATE "Sessions" SET
+        "madiMistakes" = $1,
+        "madiFormations" = $2,
+        "madiHeardBy" = $3,
+        "madiHeardByName" = $4
     `;
 
     // فقط الأدمن له صلاحية وضع التقدير النهائي
     if (req.user.role === 'admin' && madiGrade !== undefined) {
-      request.input('madiGrade', sql.NVarChar, madiGrade || null);
-      updateSql += `, madiGrade = @madiGrade`;
+      params.push(madiGrade || null);
+      updateSql += `, "madiGrade" = $${params.length}`;
     }
 
-    updateSql += ` WHERE id = @id`;
-    await request.query(updateSql);
+    params.push(sessionId);
+    updateSql += ` WHERE "id" = $${params.length}`;
+
+    await query(updateSql, params);
 
     res.json({ message: 'تم حفظ تسميع الماضي بنجاح' });
   } catch (err) {
@@ -140,39 +129,33 @@ router.post('/', authMiddleware, adminOnly, async (req, res) => {
     return res.status(400).json({ message: 'الطالب والتاريخ مطلوبان' });
 
   try {
-    const pool = await getPool();
-    const result = await pool.request()
-      .input('studentId', sql.Int, studentId)
-      .input('sessionDate', sql.Date, sessionDate)
-      .input('lawhText', sql.NVarChar, lawhText || null)
-      .input('lawhGrade', sql.NVarChar, lawhGrade || null)
-      .input('sihhaText', sql.NVarChar, sihhaText || null)
-      .input('madiText', sql.NVarChar, madiText || null)
-      .input('madiGrade', sql.NVarChar, madiGrade || null)
-      .input('madiMistakes', sql.Int, madiMistakes !== undefined && madiMistakes !== '' ? parseInt(madiMistakes, 10) : null)
-      .input('madiFormations', sql.Int, madiFormations !== undefined && madiFormations !== '' ? parseInt(madiFormations, 10) : null)
-      .input('madiHeardBy', sql.Int, madiHeardBy || null)
-      .input('madiHeardByName', sql.NVarChar, madiHeardByName || null)
-      .input('notes', sql.NVarChar, notes || null)
-      .input('createdBy', sql.Int, req.user.id)
-      .query(`
-        INSERT INTO Sessions (
-          studentId, sessionDate,
-          lawhText, lawhGrade,
-          sihhaText,
-          madiText, madiGrade, madiMistakes, madiFormations, madiHeardBy, madiHeardByName,
-          notes, createdBy
-        )
-        OUTPUT INSERTED.*
-        VALUES (
-          @studentId, @sessionDate,
-          @lawhText, @lawhGrade,
-          @sihhaText,
-          @madiText, @madiGrade, @madiMistakes, @madiFormations, @madiHeardBy, @madiHeardByName,
-          @notes, @createdBy
-        )
-      `);
-    res.status(201).json(result.recordset[0]);
+    const result = await query(`
+      INSERT INTO "Sessions" (
+        "studentId", "sessionDate",
+        "lawhText", "lawhGrade",
+        "sihhaText",
+        "madiText", "madiGrade", "madiMistakes", "madiFormations", "madiHeardBy", "madiHeardByName",
+        "notes", "createdBy"
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      RETURNING *
+    `, [
+      studentId,
+      sessionDate,
+      lawhText || null,
+      lawhGrade || null,
+      sihhaText || null,
+      madiText || null,
+      madiGrade || null,
+      madiMistakes !== undefined && madiMistakes !== '' ? parseInt(madiMistakes, 10) : null,
+      madiFormations !== undefined && madiFormations !== '' ? parseInt(madiFormations, 10) : null,
+      madiHeardBy || null,
+      madiHeardByName || null,
+      notes || null,
+      req.user.id
+    ]);
+
+    res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'خطأ في إضافة الجلسة' });
@@ -189,34 +172,38 @@ router.put('/:id', authMiddleware, adminOnly, async (req, res) => {
   } = req.body;
 
   try {
-    const pool = await getPool();
-    await pool.request()
-      .input('id', sql.Int, req.params.id)
-      .input('sessionDate', sql.Date, sessionDate)
-      .input('lawhText', sql.NVarChar, lawhText || null)
-      .input('lawhGrade', sql.NVarChar, lawhGrade || null)
-      .input('sihhaText', sql.NVarChar, sihhaText || null)
-      .input('madiText', sql.NVarChar, madiText || null)
-      .input('madiGrade', sql.NVarChar, madiGrade || null)
-      .input('madiMistakes', sql.Int, madiMistakes !== undefined && madiMistakes !== '' ? parseInt(madiMistakes, 10) : null)
-      .input('madiFormations', sql.Int, madiFormations !== undefined && madiFormations !== '' ? parseInt(madiFormations, 10) : null)
-      .input('madiHeardBy', sql.Int, madiHeardBy || null)
-      .input('madiHeardByName', sql.NVarChar, madiHeardByName || null)
-      .input('notes', sql.NVarChar, notes || null)
-      .query(`
-        UPDATE Sessions SET
-          sessionDate=@sessionDate,
-          lawhText=@lawhText,
-          lawhGrade=@lawhGrade,
-          sihhaText=@sihhaText,
-          madiText=@madiText, madiGrade=@madiGrade,
-          madiMistakes=@madiMistakes, madiFormations=@madiFormations,
-          madiHeardBy=@madiHeardBy, madiHeardByName=@madiHeardByName,
-          notes=@notes
-        WHERE id=@id
-      `);
+    await query(`
+      UPDATE "Sessions" SET
+        "sessionDate" = $1,
+        "lawhText" = $2,
+        "lawhGrade" = $3,
+        "sihhaText" = $4,
+        "madiText" = $5,
+        "madiGrade" = $6,
+        "madiMistakes" = $7,
+        "madiFormations" = $8,
+        "madiHeardBy" = $9,
+        "madiHeardByName" = $10,
+        "notes" = $11
+      WHERE "id" = $12
+    `, [
+      sessionDate,
+      lawhText || null,
+      lawhGrade || null,
+      sihhaText || null,
+      madiText || null,
+      madiGrade || null,
+      madiMistakes !== undefined && madiMistakes !== '' ? parseInt(madiMistakes, 10) : null,
+      madiFormations !== undefined && madiFormations !== '' ? parseInt(madiFormations, 10) : null,
+      madiHeardBy || null,
+      madiHeardByName || null,
+      notes || null,
+      req.params.id
+    ]);
+
     res.json({ message: 'تم تعديل الجلسة' });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: 'خطأ في تعديل الجلسة' });
   }
 });
@@ -224,10 +211,7 @@ router.put('/:id', authMiddleware, adminOnly, async (req, res) => {
 // حذف جلسة (أدمن فقط)
 router.delete('/:id', authMiddleware, adminOnly, async (req, res) => {
   try {
-    const pool = await getPool();
-    await pool.request()
-      .input('id', sql.Int, req.params.id)
-      .query('DELETE FROM Sessions WHERE id = @id');
+    await query('DELETE FROM "Sessions" WHERE "id" = $1', [req.params.id]);
     res.json({ message: 'تم حذف الجلسة' });
   } catch (err) {
     res.status(500).json({ message: 'خطأ في حذف الجلسة' });
@@ -235,4 +219,3 @@ router.delete('/:id', authMiddleware, adminOnly, async (req, res) => {
 });
 
 module.exports = router;
-

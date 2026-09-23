@@ -1,4 +1,4 @@
-const { sql } = require('../db');
+const { query } = require('../db');
 
 function cleanPhone(p) {
   if (!p) return '';
@@ -7,26 +7,24 @@ function cleanPhone(p) {
 
 /**
  * دالة للتحقق هل الطالب المستهدف هو نفسه الطالب المحفظ أو أحد إخوته (الأشقاء)
- * @param {object} pool - SQL pool
+ * @param {object} poolOrUnused - للتوافق
  * @param {number} userId - معرّف المستخدم الحالي
  * @param {number} targetStudentId - معرّف الطالب المستهدف التسميع له
  */
-async function checkSelfOrSibling(pool, userId, targetStudentId) {
+async function checkSelfOrSibling(poolOrUnused, userId, targetStudentId) {
   const targetId = parseInt(targetStudentId, 10);
   if (isNaN(targetId)) {
     return { isSelf: false, isSibling: false, isBlocked: false, myStudentId: null, reason: null };
   }
 
   // 1. جلب الطالب المربوط بحساب هذا المستخدم (في حال كان طالب محفظ)
-  const linkedRes = await pool.request()
-    .input('userId', sql.Int, userId)
-    .query('SELECT TOP 1 studentId FROM ParentStudents WHERE userId = @userId');
+  const linkedRes = await query('SELECT "studentId" FROM "ParentStudents" WHERE "userId" = $1 LIMIT 1', [userId]);
 
-  if (linkedRes.recordset.length === 0) {
+  if (linkedRes.rows.length === 0) {
     return { isSelf: false, isSibling: false, isBlocked: false, myStudentId: null, reason: null };
   }
 
-  const myStudentId = linkedRes.recordset[0].studentId;
+  const myStudentId = linkedRes.rows[0].studentId;
 
   // 2. هل هو نفس الطالب؟
   if (myStudentId === targetId) {
@@ -41,14 +39,10 @@ async function checkSelfOrSibling(pool, userId, targetStudentId) {
   }
 
   // 3. فحص هل هو أخ أو أخت
-  // جلب بيانات الطالبين
-  const studentsRes = await pool.request()
-    .input('myStudentId', sql.Int, myStudentId)
-    .input('targetId', sql.Int, targetId)
-    .query('SELECT id, parentPhone, parentPhone2 FROM Students WHERE id IN (@myStudentId, @targetId)');
+  const studentsRes = await query('SELECT id, "parentPhone", "parentPhone2" FROM "Students" WHERE id IN ($1, $2)', [myStudentId, targetId]);
 
-  const myStudent = studentsRes.recordset.find(s => s.id === myStudentId);
-  const targetStudent = studentsRes.recordset.find(s => s.id === targetId);
+  const myStudent = studentsRes.rows.find(s => s.id === myStudentId);
+  const targetStudent = studentsRes.rows.find(s => s.id === targetId);
 
   if (myStudent && targetStudent) {
     const myPhones = [myStudent.parentPhone, myStudent.parentPhone2]
@@ -73,19 +67,17 @@ async function checkSelfOrSibling(pool, userId, targetStudentId) {
   }
 
   // فحص اشتراك حساب ولي الأمر في جدول ParentStudents
-  const sharedParentRes = await pool.request()
-    .input('myStudentId', sql.Int, myStudentId)
-    .input('targetId', sql.Int, targetId)
-    .query(`
-      SELECT TOP 1 1 FROM ParentStudents ps1
-      JOIN ParentStudents ps2 ON ps1.userId = ps2.userId
-      JOIN Users u ON u.id = ps1.userId
-      WHERE ps1.studentId = @myStudentId 
-        AND ps2.studentId = @targetId 
-        AND u.role = 'parent'
-    `);
+  const sharedParentRes = await query(`
+    SELECT 1 FROM "ParentStudents" ps1
+    JOIN "ParentStudents" ps2 ON ps1."userId" = ps2."userId"
+    JOIN "Users" u ON u.id = ps1."userId"
+    WHERE ps1."studentId" = $1 
+      AND ps2."studentId" = $2 
+      AND u.role = 'parent'
+    LIMIT 1
+  `, [myStudentId, targetId]);
 
-  if (sharedParentRes.recordset.length > 0) {
+  if (sharedParentRes.rows.length > 0) {
     return {
       isSelf: false,
       isSibling: true,
