@@ -23,7 +23,7 @@ router.post('/login', async (req, res) => {
 
     const token = jwt.sign(
       { id: user.id, role: user.role, isMainAdmin: user.isMainAdmin },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || 'quran_app_secret_key_2024',
       { expiresIn: '24h' }
     );
 

@@ -5,7 +5,7 @@ function authMiddleware(req, res, next) {
   if (!token) return res.status(401).json({ message: 'غير مصرح' });
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'quran_app_secret_key_2024');
     req.user = decoded;
     next();
   } catch {
