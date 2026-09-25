@@ -9,11 +9,18 @@ router.get('/student/:studentId', authMiddleware, async (req, res) => {
   const { studentId } = req.params;
   const { months } = req.query;
 
-  // الطالب أو ولي الأمر يقدر يشوف فقط أبناءه أو نفسه
+  // الطالب أو ولي الأمر أو الطالب المحفظ المقيد
   if (req.user.role === 'student' || req.user.role === 'parent') {
     const linked = await query('SELECT 1 FROM "ParentStudents" WHERE "userId" = $1 AND "studentId" = $2', [req.user.id, studentId]);
     if (linked.rows.length === 0)
       return res.status(403).json({ message: 'غير مسموح' });
+  } else if (req.user.role === 'student_teacher') {
+    const hasSpecific = await query('SELECT 1 FROM "ParentStudents" WHERE "userId" = $1 LIMIT 1', [req.user.id]);
+    if (hasSpecific.rows.length > 0) {
+      const linked = await query('SELECT 1 FROM "ParentStudents" WHERE "userId" = $1 AND "studentId" = $2', [req.user.id, studentId]);
+      if (linked.rows.length === 0)
+        return res.status(403).json({ message: 'غير مسموح بعرض جلسات هذا الطالب' });
+    }
   }
 
   try {

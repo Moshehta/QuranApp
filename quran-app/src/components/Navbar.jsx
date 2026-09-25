@@ -51,6 +51,9 @@ export default function Navbar({ user, onLogout }) {
                 <li className="nav-item">
                   <Link className="nav-link" to="/users">إدارة المستخدمين</Link>
                 </li>
+                <li className="nav-item">
+                  <Link className="nav-link" to="/student-assignments">📋 توزيع الطلاب</Link>
+                </li>
               </>
             )}
           </ul>

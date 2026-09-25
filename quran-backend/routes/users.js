@@ -150,7 +150,7 @@ router.delete('/:id', authMiddleware, mainAdminOnly, async (req, res) => {
   }
 });
 
-// جلب الطلاب المرتبطين بولي أمر
+// جلب الطلاب المرتبطين بمستخدم (أدمن فقط)
 router.get('/:id/students', authMiddleware, adminOnly, async (req, res) => {
   try {
     const result = await query(`
@@ -161,7 +161,39 @@ router.get('/:id/students', authMiddleware, adminOnly, async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'خطأ في جلب طلاب ولي الأمر' });
+    res.status(500).json({ message: 'خطأ في جلب طلاب المستخدم' });
+  }
+});
+
+// تحديث قائمة الطلاب المسندين لمستخدم (أدمن فقط)
+router.put('/:id/assignments', authMiddleware, adminOnly, async (req, res) => {
+  const { studentIds } = req.body;
+  const targetId = parseInt(req.params.id, 10);
+
+  try {
+    const userCheck = await query('SELECT id, name, role FROM "Users" WHERE id = $1', [targetId]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'المستخدم غير موجود' });
+    }
+
+    // حذف التوزيع الحالي
+    await query('DELETE FROM "ParentStudents" WHERE "userId" = $1', [targetId]);
+
+    // إضافة الطلاب الجدد المحددين
+    if (Array.isArray(studentIds) && studentIds.length > 0) {
+      for (const studentId of studentIds) {
+        await query(`
+          INSERT INTO "ParentStudents" ("userId", "studentId")
+          VALUES ($1, $2)
+          ON CONFLICT DO NOTHING
+        `, [targetId, studentId]);
+      }
+    }
+
+    res.json({ message: 'تم تحديث توزيع الطلاب بنجاح' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'خطأ في تحديث توزيع الطلاب' });
   }
 });
 

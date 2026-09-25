@@ -47,19 +47,32 @@ async function linkOrCreateParentUser(studentId, studentName, parentName, phoneN
 // جلب كل الطلاب (أدمن وطالب محفظ يرون الكل، ولي الأمر والطالب يرون المربوط بهم)
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    if (req.user.role === 'admin' || req.user.role === 'superadmin' || req.user.role === 'student_teacher') {
+    if (req.user.role === 'admin' || req.user.role === 'superadmin') {
       const result = await query('SELECT * FROM "Students" WHERE "isActive" = TRUE ORDER BY "name"');
       return res.json(result.rows);
     }
 
+    // جلب الطلاب المسندين للمستخدم في ParentStudents
+    const linked = await query(`
+      SELECT s.* FROM "Students" s
+      INNER JOIN "ParentStudents" ps ON ps."studentId" = s.id
+      WHERE ps."userId" = $1 AND s."isActive" = TRUE
+      ORDER BY s."name"
+    `, [req.user.id]);
+
+    // إذا كان طالب محفظ:
+    // إذا تم تحديد طلاب له في ParentStudents -> يرى فقط الطلاب المحددين له
+    // إذا لم يتم تحديد أي طالب له -> يرى كل الطلاب تلقائياً (الوضع الافتراضي)
+    if (req.user.role === 'student_teacher') {
+      if (linked.rows.length > 0) {
+        return res.json(linked.rows);
+      }
+      const allResult = await query('SELECT * FROM "Students" WHERE "isActive" = TRUE ORDER BY "name"');
+      return res.json(allResult.rows);
+    }
+
     if (req.user.role === 'parent' || req.user.role === 'student') {
-      const result = await query(`
-        SELECT s.* FROM "Students" s
-        INNER JOIN "ParentStudents" ps ON ps."studentId" = s.id
-        WHERE ps."userId" = $1 AND s."isActive" = TRUE
-        ORDER BY s."name"
-      `, [req.user.id]);
-      return res.json(result.rows);
+      return res.json(linked.rows);
     }
 
     res.status(403).json({ message: 'غير مسموح' });
@@ -94,11 +107,20 @@ router.get('/:id', authMiddleware, async (req, res) => {
 
     const student = result.rows[0];
 
-    // فحص صلاحية الطالب أو ولي الأمر
+    // فحص صلاحية الطالب أو ولي الأمر أو الطالب المحفظ المقيد
     if (req.user.role === 'student' || req.user.role === 'parent') {
       const linked = await query('SELECT 1 FROM "ParentStudents" WHERE "userId" = $1 AND "studentId" = $2', [req.user.id, student.id]);
       if (linked.rows.length === 0) {
         return res.status(403).json({ message: 'غير مصرح بعرض هذا الطالب' });
+      }
+    } else if (req.user.role === 'student_teacher') {
+      // لو كان الطالب المحفظ مسند له طلاب محددين، نتأكد إنه مصرح له بهذا الطالب
+      const hasSpecific = await query('SELECT 1 FROM "ParentStudents" WHERE "userId" = $1 LIMIT 1', [req.user.id]);
+      if (hasSpecific.rows.length > 0) {
+        const linked = await query('SELECT 1 FROM "ParentStudents" WHERE "userId" = $1 AND "studentId" = $2', [req.user.id, student.id]);
+        if (linked.rows.length === 0) {
+          return res.status(403).json({ message: 'غير مصرح بعرض هذا الطالب' });
+        }
       }
     }
 

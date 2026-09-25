@@ -10,6 +10,7 @@ import AddStudent from './pages/AddStudent';
 import Navbar from './components/Navbar';
 import ChangePasswordModal from './components/ChangePasswordModal';
 import QuranAudio from './pages/QuranAudio';
+import StudentAssignments from './pages/StudentAssignments';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -66,6 +67,7 @@ function App() {
           <Route path="/student/:id/add-session" element={user ? <AddSession user={user} /> : <Navigate to="/login" />} />
           <Route path="/add-student" element={user ? <AddStudent user={user} /> : <Navigate to="/login" />} />
           <Route path="/users" element={user ? <UsersManagement user={user} /> : <Navigate to="/login" />} />
+          <Route path="/student-assignments" element={user ? <StudentAssignments user={user} /> : <Navigate to="/login" />} />
           <Route path="/quran-audio" element={user ? <QuranAudio /> : <Navigate to="/login" />} />
         </Routes>
       </div>

@@ -4,6 +4,7 @@ import { QURAN_SURAHS, getSurahAudioUrl } from '../quranData';
 export default function QuranAudio() {
   const [search, setSearch] = useState('');
   const [currentSurah, setCurrentSurah] = useState(null);
+  const [recitationType, setRecitationType] = useState('murattal'); // 'murattal' | 'muallim'
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -20,6 +21,31 @@ export default function QuranAudio() {
     String(s.id) === search.trim() ||
     s.name.replace(/أ|إ|آ/g, 'ا').includes(search.trim().replace(/أ|إ|آ/g, 'ا'))
   );
+
+  // تبديل نوع التلاوة (مرتل / معلم)
+  const handleRecitationTypeChange = (type) => {
+    if (type === recitationType) return;
+    setRecitationType(type);
+    if (currentSurah && audioRef.current) {
+      setIsLoadingAudio(true);
+      const wasPlaying = isPlaying;
+      audioRef.current.src = getSurahAudioUrl(currentSurah.id, type);
+      audioRef.current.currentTime = 0;
+      if (wasPlaying) {
+        audioRef.current.play()
+          .then(() => {
+            setIsPlaying(true);
+            setIsLoadingAudio(false);
+          })
+          .catch(() => {
+            setIsPlaying(false);
+            setIsLoadingAudio(false);
+          });
+      } else {
+        setIsLoadingAudio(false);
+      }
+    }
+  };
 
   // تشغيل سورة معينة
   const playSurah = (surah) => {
@@ -39,7 +65,7 @@ export default function QuranAudio() {
     setCurrentTime(0);
 
     if (audioRef.current) {
-      audioRef.current.src = getSurahAudioUrl(surah.id);
+      audioRef.current.src = getSurahAudioUrl(surah.id, recitationType);
       audioRef.current.playbackRate = playbackRate;
       audioRef.current.play()
         .then(() => {
@@ -129,7 +155,7 @@ export default function QuranAudio() {
       />
 
       {/* عنوان الصفحة */}
-      <div className="card shadow-sm border-0 mb-4 rounded-3 bg-success text-white">
+      <div className="card shadow-sm border-0 mb-3 rounded-3 bg-success text-white">
         <div className="card-body p-3 p-md-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
           <div>
             <div className="d-flex align-items-center gap-2 mb-1">
@@ -137,12 +163,59 @@ export default function QuranAudio() {
               <h4 className="fw-bold mb-0">المصحف المسموع كاملاً</h4>
             </div>
             <p className="mb-0 opacity-75 small">
-              القرآن الكريم كاملاً برواية حفص عن عاصم (المصحف المرتل) — بصوت فضيلة الشيخ <strong>محمود خليل الحصري</strong> رحمه الله
+              القرآن الكريم كاملاً بصوت فضيلة الشيخ <strong>محمود خليل الحصري</strong> رحمه الله — {recitationType === 'murattal' ? 'المصحف المرتل' : 'المصحف المعلم (مع ترديد الأطفال)'}
             </p>
           </div>
           <span className="badge bg-white text-success px-3 py-2 fs-6 rounded-pill fw-bold shadow-sm">
             114 سورة كاملة
           </span>
+        </div>
+      </div>
+
+      {/* تبديل نوع المصحف: المرتل / المعلم */}
+      <div className="card shadow-sm border-0 mb-4 rounded-3">
+        <div className="card-body p-2 p-md-3">
+          <div className="row g-2">
+            <div className="col-12 col-md-6">
+              <button
+                type="button"
+                className={`btn w-100 py-2 py-md-3 rounded-3 d-flex align-items-center justify-content-center gap-2 fw-bold text-end ${
+                  recitationType === 'murattal'
+                    ? 'btn-success text-white shadow'
+                    : 'btn-outline-secondary'
+                }`}
+                onClick={() => handleRecitationTypeChange('murattal')}
+              >
+                <span className="fs-4">📖</span>
+                <div>
+                  <div className="fs-6 fw-bold">المصحف المرتل</div>
+                  <div className="small fw-normal opacity-75" style={{ fontSize: '0.78rem' }}>
+                    تلاوة متواصلة هادئة ومتقنة
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            <div className="col-12 col-md-6">
+              <button
+                type="button"
+                className={`btn w-100 py-2 py-md-3 rounded-3 d-flex align-items-center justify-content-center gap-2 fw-bold text-end ${
+                  recitationType === 'muallim'
+                    ? 'btn-success text-white shadow'
+                    : 'btn-outline-secondary'
+                }`}
+                onClick={() => handleRecitationTypeChange('muallim')}
+              >
+                <span className="fs-4">👨‍👧‍👦</span>
+                <div>
+                  <div className="fs-6 fw-bold">المصحف المعلم (مع ترديد الأطفال)</div>
+                  <div className="small fw-normal opacity-75" style={{ fontSize: '0.78rem' }}>
+                    تلاوة الآية ثم ترديد الأطفال بعدها لتسهيل الحفظ
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -238,7 +311,7 @@ export default function QuranAudio() {
                   <div>
                     <h6 className="fw-bold mb-0 text-white">سورة {currentSurah.name}</h6>
                     <small className="text-white-50" style={{ fontSize: '0.75rem' }}>
-                      الشيخ محمود خليل الحصري ({currentSurah.type} - {currentSurah.ayahs} آية)
+                      الشيخ الحصري • {recitationType === 'murattal' ? 'المصحف المرتل' : 'المصحف المعلم'} ({currentSurah.type} - {currentSurah.ayahs} آية)
                     </small>
                   </div>
                 </div>

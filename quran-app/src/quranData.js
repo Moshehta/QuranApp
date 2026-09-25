@@ -116,7 +116,11 @@ export const QURAN_SURAHS = [
   { id: 114, name: 'الناس', ayahs: 6, type: 'مكية' }
 ];
 
-export const getSurahAudioUrl = (surahId) => {
+export const getSurahAudioUrl = (surahId, recitationType = 'murattal') => {
   const padId = String(surahId).padStart(3, '0');
+  if (recitationType === 'muallim') {
+    return `https://archive.org/download/Al-Husaree_Almoalim/${padId}.mp3`;
+  }
   return `https://server13.mp3quran.net/husr/${padId}.mp3`;
 };
+
