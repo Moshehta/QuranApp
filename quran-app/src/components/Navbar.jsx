@@ -5,6 +5,7 @@ export default function Navbar({ user, onLogout }) {
   const navigate = useNavigate();
   const isAdmin = user.role === 'admin' || user.isMainAdmin;
   const [refreshing, setRefreshing] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -15,6 +16,7 @@ export default function Navbar({ user, onLogout }) {
   };
 
   const handleLogout = () => {
+    setIsOpen(false);
     onLogout();
     navigate('/login');
   };
@@ -27,37 +29,43 @@ export default function Navbar({ user, onLogout }) {
   };
 
   return (
-    <nav className="navbar navbar-expand-lg navbar-dark bg-success">
+    <nav className="navbar navbar-expand-lg navbar-dark bg-success shadow-sm">
       <div className="container">
-        <Link className="navbar-brand fw-bold" to="/">
+        <Link className="navbar-brand fw-bold" to="/" onClick={() => setIsOpen(false)}>
           🕌 مقرأة تحفيظ قرآن
         </Link>
-        <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+        <button
+          className="navbar-toggler"
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          aria-expanded={isOpen}
+          aria-label="تبديل القائمة"
+        >
           <span className="navbar-toggler-icon"></span>
         </button>
-        <div className="collapse navbar-collapse" id="navMenu">
-          <ul className="navbar-nav me-auto">
+        <div className={`collapse navbar-collapse ${isOpen ? 'show' : ''}`} id="navMenu">
+          <ul className="navbar-nav me-auto mb-2 mb-lg-0">
             <li className="nav-item">
-              <Link className="nav-link" to="/">الرئيسية</Link>
+              <Link className="nav-link" to="/" onClick={() => setIsOpen(false)}>الرئيسية</Link>
             </li>
             <li className="nav-item">
-              <Link className="nav-link" to="/quran-audio">🎧 المصحف المسموع</Link>
+              <Link className="nav-link" to="/quran-audio" onClick={() => setIsOpen(false)}>🎧 المصحف المسموع</Link>
             </li>
             {isAdmin && (
               <>
                 <li className="nav-item">
-                  <Link className="nav-link" to="/add-student">إضافة طالب</Link>
+                  <Link className="nav-link" to="/add-student" onClick={() => setIsOpen(false)}>إضافة طالب</Link>
                 </li>
                 <li className="nav-item">
-                  <Link className="nav-link" to="/users">إدارة المستخدمين</Link>
+                  <Link className="nav-link" to="/users" onClick={() => setIsOpen(false)}>إدارة المستخدمين</Link>
                 </li>
                 <li className="nav-item">
-                  <Link className="nav-link" to="/student-assignments">📋 توزيع الطلاب</Link>
+                  <Link className="nav-link" to="/student-assignments" onClick={() => setIsOpen(false)}>📋 توزيع الطلاب</Link>
                 </li>
               </>
             )}
           </ul>
-          <div className="d-flex align-items-center gap-2">
+          <div className="d-flex align-items-center gap-2 flex-wrap pt-2 pt-lg-0 border-top border-white border-opacity-25 border-top-lg-0">
             <button
               className="btn btn-outline-light btn-sm d-flex align-items-center gap-1"
               onClick={handleRefresh}
