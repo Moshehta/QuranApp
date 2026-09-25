@@ -541,72 +541,92 @@ export default function StudentProfile({ user }) {
       {/* نافذة تسجيل تسميع الماضي (الأخطاء والتشكيلات وإمضاء المُسمّع) */}
       {madiListeningSession && (
         <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1065 }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content border-0 shadow">
-              <div className="modal-header bg-warning text-dark">
-                <h5 className="modal-title fw-bold">🎧 تسجيل تسميع الماضي ({student.name})</h5>
-                <button type="button" className="btn-close" onClick={() => setMadiListeningSession(null)}></button>
+          <div className="modal-dialog modal-dialog-centered mx-auto px-2" style={{ maxWidth: 440 }}>
+            <div className="modal-content border-0 shadow-lg rounded-3 overflow-hidden">
+              <div className="modal-header bg-warning text-dark py-2 px-3 align-items-center">
+                <div className="d-flex align-items-center gap-2 text-truncate me-2">
+                  <span className="fs-5">🎧</span>
+                  <div className="text-truncate">
+                    <h6 className="modal-title fw-bold mb-0">تسجيل تسميع الماضي</h6>
+                    <div className="small opacity-75 fw-normal text-truncate" style={{ maxWidth: 220 }}>
+                      {student.name}
+                    </div>
+                  </div>
+                </div>
+                <button type="button" className="btn-close ms-0" onClick={() => setMadiListeningSession(null)}></button>
               </div>
               <form onSubmit={handleSaveMadiListening}>
                 <div className="modal-body p-3">
                   {madiListeningError && <div className="alert alert-danger">{madiListeningError}</div>}
 
-                  <div className="alert alert-light border mb-3">
-                    <div className="small text-muted mb-1">
-                      📅 جلسة: <strong>{new Date(madiListeningSession.sessionDate).toLocaleDateString('ar-EG')}</strong>
+                  <div className="alert alert-light border mb-3 p-2 rounded-3">
+                    <div className="small text-muted mb-1 d-flex justify-content-between">
+                      <span>📅 تاريخ الجلسة:</span>
+                      <strong>{new Date(madiListeningSession.sessionDate).toLocaleDateString('ar-EG')}</strong>
                     </div>
-                    <div className="fw-bold text-dark">
-                      🔄 الماضي المطلوب: {madiListeningSession.madiText || <span className="text-muted">لم يُحدد نص</span>}
+                    <div className="small text-dark d-flex justify-content-between align-items-baseline gap-2">
+                      <span className="text-muted text-nowrap">🔄 الماضي المطلوب:</span>
+                      <strong className="text-success text-end">{madiListeningSession.madiText || 'لم يُحدد نص'}</strong>
                     </div>
                   </div>
 
-                  <div className="row g-3 mb-3">
+                  <div className="row g-2 mb-3">
                     {/* عدد الأخطاء من 0 إلى 10 */}
-                    <div className="col-6">
-                      <label className="form-label fw-bold small text-danger">❌ عدد الأخطاء (0 - 10):</label>
-                      <select
-                        className="form-select form-select-lg text-center fw-bold border-danger-subtle"
-                        value={madiListeningForm.madiMistakes}
-                        onChange={e => setMadiListeningForm(prev => ({ ...prev, madiMistakes: parseInt(e.target.value, 10) }))}
-                      >
-                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
-                          <option key={n} value={n}>
-                            {n} {n === 0 ? '(بدون أخطاء)' : n === 1 ? 'خطأ واحد' : n === 2 ? 'خطآن' : 'أخطاء'}
-                          </option>
-                        ))}
-                      </select>
+                    <div className="col-12 col-sm-6">
+                      <div className="p-2 rounded-3 border border-danger-subtle bg-danger bg-opacity-10">
+                        <label className="form-label fw-bold small text-danger mb-1 d-flex justify-content-between align-items-center">
+                          <span>❌ عدد الأخطاء (0 - 10)</span>
+                          <span className="badge bg-danger text-white">{madiListeningForm.madiMistakes}</span>
+                        </label>
+                        <select
+                          className="form-select text-center fw-bold border-danger-subtle rounded-3 bg-white"
+                          value={madiListeningForm.madiMistakes}
+                          onChange={e => setMadiListeningForm(prev => ({ ...prev, madiMistakes: parseInt(e.target.value, 10) }))}
+                        >
+                          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                            <option key={n} value={n}>
+                              {n} {n === 0 ? '(بدون أخطاء)' : n === 1 ? 'خطأ واحد' : n === 2 ? 'خطآن' : 'أخطاء'}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
 
                     {/* عدد التشكيلات من 0 إلى 10 */}
-                    <div className="col-6">
-                      <label className="form-label fw-bold small text-warning-emphasis">🔤 عدد التشكيلات (0 - 10):</label>
-                      <select
-                        className="form-select form-select-lg text-center fw-bold border-warning-subtle"
-                        value={madiListeningForm.madiFormations}
-                        onChange={e => setMadiListeningForm(prev => ({ ...prev, madiFormations: parseInt(e.target.value, 10) }))}
-                      >
-                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
-                          <option key={n} value={n}>
-                            {n} {n === 0 ? '(صحيح تماماً)' : n === 1 ? 'تشكيل واحد' : n === 2 ? 'تشكيلان' : 'تشكيلات'}
-                          </option>
-                        ))}
-                      </select>
+                    <div className="col-12 col-sm-6">
+                      <div className="p-2 rounded-3 border border-warning-subtle bg-warning bg-opacity-10">
+                        <label className="form-label fw-bold small text-warning-emphasis mb-1 d-flex justify-content-between align-items-center">
+                          <span>🔤 عدد التشكيلات (0 - 10)</span>
+                          <span className="badge bg-warning text-dark">{madiListeningForm.madiFormations}</span>
+                        </label>
+                        <select
+                          className="form-select text-center fw-bold border-warning-subtle rounded-3 bg-white"
+                          value={madiListeningForm.madiFormations}
+                          onChange={e => setMadiListeningForm(prev => ({ ...prev, madiFormations: parseInt(e.target.value, 10) }))}
+                        >
+                          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                            <option key={n} value={n}>
+                              {n} {n === 0 ? '(صحيح تماماً)' : n === 1 ? 'تشكيل واحد' : n === 2 ? 'تشكيلان' : 'تشكيلات'}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
 
                   {/* إمضاء المُسمّع */}
                   {!isAdmin ? (
-                    <div className="mb-3 p-2 rounded bg-light border">
-                      <label className="form-label fw-bold small text-muted mb-1 d-block">✍️ إمضاء المُسمّع:</label>
-                      <div className="fw-bold text-dark fs-6">
-                        {user.name}
+                    <div className="mb-3 p-2 rounded-3 bg-light border">
+                      <div className="d-flex justify-content-between align-items-center">
+                        <span className="small text-muted fw-bold">✍️ إمضاء المُسمّع:</span>
+                        <span className="badge bg-primary fs-6">{user.name}</span>
                       </div>
                     </div>
                   ) : (
-                    <div className="mb-3">
-                      <label className="form-label fw-bold small">✍️ إمضاء المُسمّع:</label>
+                    <div className="mb-3 p-2 rounded-3 bg-light border">
+                      <label className="form-label fw-bold small text-muted mb-1">✍️ إمضاء المُسمّع:</label>
                       <select
-                        className="form-select"
+                        className="form-select rounded-3"
                         value={madiListeningForm.madiHeardBy}
                         onChange={e => {
                           const selectedId = parseInt(e.target.value, 10);
@@ -629,10 +649,10 @@ export default function StudentProfile({ user }) {
 
                   {/* إذا كان المستخدم أدمن، يمكنه وضع التقدير النهائي من هنا أيضاً إن أراد */}
                   {isAdmin && (
-                    <div className="p-2 rounded bg-light border mb-2">
-                      <label className="form-label fw-bold small text-success">⭐ التقدير النهائي (صلاحية الأدمن):</label>
+                    <div className="p-2 rounded-3 bg-light border mb-2">
+                      <label className="form-label fw-bold small text-success mb-1">⭐ التقدير النهائي (صلاحية الأدمن):</label>
                       <select
-                        className="form-select form-select-sm"
+                        className="form-select rounded-3"
                         value={madiListeningForm.madiGrade}
                         onChange={e => setMadiListeningForm(prev => ({ ...prev, madiGrade: e.target.value }))}
                       >
@@ -642,10 +662,30 @@ export default function StudentProfile({ user }) {
                     </div>
                   )}
                 </div>
-                <div className="modal-footer bg-light p-2 justify-content-between">
-                  <button type="button" className="btn btn-secondary" onClick={() => setMadiListeningSession(null)}>إلغاء</button>
-                  <button type="submit" className="btn btn-success px-4 fw-bold" disabled={madiListeningLoading}>
-                    {madiListeningLoading ? 'جاري الحفظ...' : '💾 حفظ التسميع'}
+                <div className="modal-footer bg-light p-2 d-flex gap-2">
+                  <button
+                    type="submit"
+                    className="btn btn-success flex-grow-1 fw-bold py-2 rounded-3 shadow-sm d-flex align-items-center justify-content-center gap-1"
+                    disabled={madiListeningLoading}
+                  >
+                    {madiListeningLoading ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm" />
+                        <span>جاري الحفظ...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>💾</span>
+                        <span>حفظ التسميع</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary px-3 py-2 rounded-3"
+                    onClick={() => setMadiListeningSession(null)}
+                  >
+                    إلغاء
                   </button>
                 </div>
               </form>
