@@ -25,6 +25,10 @@ app.get('/', (req, res) => {
   res.json({ message: 'مقرأة تحفيظ قرآن - API يعمل بنجاح ✓' });
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ السيرفر يعمل على port ${PORT}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`✅ السيرفر يعمل على port ${PORT}`);
+  });
+}
+
+module.exports = app;
