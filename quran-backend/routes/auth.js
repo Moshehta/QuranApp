@@ -40,7 +40,7 @@ router.post('/login', async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'خطأ في الخادم' });
+    res.status(500).json({ message: 'خطأ في الخادم', error: err.message });
   }
 });
 
