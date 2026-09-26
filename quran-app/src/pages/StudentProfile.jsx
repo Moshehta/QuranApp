@@ -128,8 +128,28 @@ export default function StudentProfile({ user }) {
 
   const deleteSession = async (sessionId) => {
     if (!window.confirm('هل أنت متأكد من حذف هذه الجلسة؟')) return;
-    await API.delete(`/sessions/${sessionId}`);
-    loadData();
+    try {
+      await API.delete(`/sessions/${sessionId}`);
+      loadData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'حدث خطأ في حذف الجلسة');
+    }
+  };
+
+  const handleFinalSave = async (session) => {
+    const isCurrentlyLocked = session.isFinalSaved;
+    const confirmMsg = isCurrentlyLocked
+      ? 'هل أنت متأكد من فك الاعتماد النهائي لهذه الجلسة؟'
+      : 'هل أنت متأكد من الاعتماد النهائي (Final Save) لهذه الجلسة؟\n\nبعد الاعتماد، لن يتمكن أي أدمن من تعديل أو حذف الجلسة، ولن يستطيع ذلك إلا الأدمن الرئيسي فقط.';
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const res = await API.post(`/sessions/${session.id}/final-save`);
+      setSessions(prev => prev.map(s => s.id === session.id ? { ...s, isFinalSaved: res.data.isFinalSaved } : s));
+    } catch (err) {
+      alert(err.response?.data?.message || 'حدث خطأ في الاعتماد النهائي للجلسة');
+    }
   };
 
   const openEditModal = () => {
@@ -416,6 +436,7 @@ export default function StudentProfile({ user }) {
                       type="date"
                       className="form-control"
                       value={sessionForm.sessionDate}
+                      min={!user?.isMainAdmin ? new Date().toISOString().split('T')[0] : undefined}
                       onChange={e => setSessionForm(prev => ({ ...prev, sessionDate: e.target.value }))}
                       required
                     />
@@ -832,28 +853,63 @@ export default function StudentProfile({ user }) {
               {sessions.map((s) => (
                 <div key={s.id} className="card border-0 shadow-sm rounded-3 overflow-hidden bg-light bg-opacity-50">
                   {/* رأس الكارت */}
-                  <div className="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center border-bottom">
+                  <div className="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center border-bottom flex-wrap gap-2">
                     <div className="d-flex align-items-center gap-2">
                       <span className="badge bg-dark-subtle text-dark border px-2 py-1">
                         📅 {formatDate(s.sessionDate)}
                       </span>
+                      {s.isFinalSaved && (
+                        <span className="badge bg-danger shadow-sm">
+                          🔒 معتمدة نهائياً
+                        </span>
+                      )}
                     </div>
                     {isAdmin && (
-                      <div className="d-flex gap-1">
-                        <button
-                          className="btn btn-sm btn-outline-primary py-0 px-2"
-                          onClick={() => openEditSessionModal(s)}
-                          title="تعديل الجلسة"
-                        >
-                          ✏️ تعديل
-                        </button>
-                        <button
-                          className="btn btn-sm btn-outline-danger py-0 px-2"
-                          onClick={() => deleteSession(s.id)}
-                          title="حذف الجلسة"
-                        >
-                          🗑️
-                        </button>
+                      <div className="d-flex align-items-center gap-1 flex-wrap">
+                        {/* زر الاعتماد النهائي (Final Save) أو فك الاعتماد */}
+                        {user.isMainAdmin && s.isFinalSaved ? (
+                          <button
+                            className="btn btn-sm btn-outline-warning py-0 px-2 fw-bold"
+                            onClick={() => handleFinalSave(s)}
+                            title="فك الاعتماد النهائي (خاص بالأدمن الرئيسي)"
+                            style={{ fontSize: '0.78rem' }}
+                          >
+                            🔓 فك الاعتماد
+                          </button>
+                        ) : !s.isFinalSaved ? (
+                          <button
+                            className="btn btn-sm btn-outline-danger py-0 px-2 fw-bold"
+                            onClick={() => handleFinalSave(s)}
+                            title="اعتماد نهائي للجلسة لمنع التعديل"
+                            style={{ fontSize: '0.78rem' }}
+                          >
+                            🔒 Final Save
+                          </button>
+                        ) : null}
+
+                        {/* زر التعديل والحذف: متاحين إذا لم تكن الجلسة معتمدة، أو إذا كان المستخدم هو الأدمن الرئيسي */}
+                        {(!s.isFinalSaved || user.isMainAdmin) ? (
+                          <>
+                            <button
+                              className="btn btn-sm btn-outline-primary py-0 px-2"
+                              onClick={() => openEditSessionModal(s)}
+                              title="تعديل الجلسة"
+                            >
+                              ✏️ تعديل
+                            </button>
+                            <button
+                              className="btn btn-sm btn-outline-danger py-0 px-2"
+                              onClick={() => deleteSession(s.id)}
+                              title="حذف الجلسة"
+                            >
+                              🗑️
+                            </button>
+                          </>
+                        ) : (
+                          <span className="badge bg-secondary-subtle text-muted border py-1" style={{ fontSize: '0.72rem' }}>
+                            🔒 مقفولة للأدمن
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
@@ -935,31 +991,39 @@ export default function StudentProfile({ user }) {
 
                           {/* أزرار الإجراءات على الماضي */}
                           <div className="d-flex gap-1 flex-wrap mt-2">
-                            {isExaminer && (
-                              <button
-                                type="button"
-                                className="btn btn-outline-warning btn-sm py-0 px-2 small fw-bold"
-                                style={{ fontSize: '0.75rem' }}
-                                disabled={isStudentTeacher && student.isSelfOrSibling}
-                                title={isStudentTeacher && student.isSelfOrSibling ? 'ممنوع التسميع للنفس أو الإخوة' : 'تسجيل التسميع'}
-                                onClick={() => openMadiListeningModal(s)}
-                              >
-                                🎧 {s.madiMistakes !== null ? 'تعديل التسميع' : 'تسميع الماضي'}
-                              </button>
-                            )}
+                            {(!s.isFinalSaved || user.isMainAdmin) ? (
+                              <>
+                                {isExaminer && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline-warning btn-sm py-0 px-2 small fw-bold"
+                                    style={{ fontSize: '0.75rem' }}
+                                    disabled={isStudentTeacher && student.isSelfOrSibling}
+                                    title={isStudentTeacher && student.isSelfOrSibling ? 'ممنوع التسميع للنفس أو الإخوة' : 'تسجيل التسميع'}
+                                    onClick={() => openMadiListeningModal(s)}
+                                  >
+                                    🎧 {s.madiMistakes !== null ? 'تعديل التسميع' : 'تسميع الماضي'}
+                                  </button>
+                                )}
 
-                            {isAdmin && (
-                              <button
-                                type="button"
-                                className={`btn btn-sm py-0 px-2 small fw-bold ${s.madiGrade ? 'btn-outline-success' : 'btn-warning text-dark'}`}
-                                style={{ fontSize: '0.75rem' }}
-                                onClick={() => {
-                                  setQuickMadiSession(s);
-                                  setQuickGrade(s.madiGrade || '');
-                                }}
-                              >
-                                {s.madiGrade ? 'تعديل التقدير' : '⭐ اعتماد التقدير'}
-                              </button>
+                                {isAdmin && (
+                                  <button
+                                    type="button"
+                                    className={`btn btn-sm py-0 px-2 small fw-bold ${s.madiGrade ? 'btn-outline-success' : 'btn-warning text-dark'}`}
+                                    style={{ fontSize: '0.75rem' }}
+                                    onClick={() => {
+                                      setQuickMadiSession(s);
+                                      setQuickGrade(s.madiGrade || '');
+                                    }}
+                                  >
+                                    {s.madiGrade ? 'تعديل التقدير' : '⭐ اعتماد التقدير'}
+                                  </button>
+                                )}
+                              </>
+                            ) : (
+                              <span className="badge bg-secondary-subtle text-muted border py-1" style={{ fontSize: '0.72rem' }}>
+                                🔒 معتمدة نهائياً
+                              </span>
                             )}
                           </div>
                         </div>
@@ -993,7 +1057,14 @@ export default function StudentProfile({ user }) {
                 <tbody>
                   {sessions.map((s) => (
                     <tr key={s.id}>
-                      <td className="fw-semibold small">{new Date(s.sessionDate).toLocaleDateString('ar-EG')}</td>
+                      <td className="fw-semibold small">
+                        <div>{new Date(s.sessionDate).toLocaleDateString('ar-EG')}</div>
+                        {s.isFinalSaved && (
+                          <span className="badge bg-danger mt-1" style={{ fontSize: '0.65rem' }}>
+                            🔒 معتمدة نهائياً
+                          </span>
+                        )}
+                      </td>
                       <td>
                         {s.lawhText || (s.lawhSurah ? `${s.lawhSurah} (${s.lawhFrom || 1}→${s.lawhTo || '?'})` : '-')}
                       </td>
@@ -1020,48 +1091,78 @@ export default function StudentProfile({ user }) {
                         ) : (
                           <span className="text-muted small">قيد التسميع</span>
                         )}
-                        <div className="d-flex justify-content-center gap-1 mt-1">
-                          {isExaminer && (
-                            <button
-                              className="btn btn-sm btn-outline-warning py-0 px-1"
-                              style={{ fontSize: '0.72rem' }}
-                              disabled={isStudentTeacher && student.isSelfOrSibling}
-                              onClick={() => openMadiListeningModal(s)}
-                            >
-                              🎧 تسميع
-                            </button>
-                          )}
-                          {isAdmin && (
-                            <button
-                              className="btn btn-sm btn-warning py-0 px-1 text-dark fw-bold"
-                              style={{ fontSize: '0.72rem' }}
-                              onClick={() => {
-                                setQuickMadiSession(s);
-                                setQuickGrade(s.madiGrade || '');
-                              }}
-                            >
-                              ⭐ تقدير
-                            </button>
-                          )}
-                        </div>
+                        {(!s.isFinalSaved || user.isMainAdmin) && (
+                          <div className="d-flex justify-content-center gap-1 mt-1">
+                            {isExaminer && (
+                              <button
+                                className="btn btn-sm btn-outline-warning py-0 px-1"
+                                style={{ fontSize: '0.72rem' }}
+                                disabled={isStudentTeacher && student.isSelfOrSibling}
+                                onClick={() => openMadiListeningModal(s)}
+                              >
+                                🎧 تسميع
+                              </button>
+                            )}
+                            {isAdmin && (
+                              <button
+                                className="btn btn-sm btn-warning py-0 px-1 text-dark fw-bold"
+                                style={{ fontSize: '0.72rem' }}
+                                onClick={() => {
+                                  setQuickMadiSession(s);
+                                  setQuickGrade(s.madiGrade || '');
+                                }}
+                              >
+                                ⭐ تقدير
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </td>
                       {isAdmin && (
                         <td>
-                          <div className="d-flex justify-content-center gap-1">
-                            <button
-                              className="btn btn-sm btn-outline-primary py-0 px-2"
-                              title="تعديل"
-                              onClick={() => openEditSessionModal(s)}
-                            >
-                              ✏️
-                            </button>
-                            <button
-                              className="btn btn-sm btn-outline-danger py-0 px-2"
-                              title="حذف"
-                              onClick={() => deleteSession(s.id)}
-                            >
-                              🗑️
-                            </button>
+                          <div className="d-flex justify-content-center align-items-center gap-1">
+                            {user.isMainAdmin && s.isFinalSaved ? (
+                              <button
+                                className="btn btn-sm btn-outline-warning py-0 px-1"
+                                title="فك الاعتماد النهائي (خاص بالأدمن الرئيسي)"
+                                style={{ fontSize: '0.72rem' }}
+                                onClick={() => handleFinalSave(s)}
+                              >
+                                🔓
+                              </button>
+                            ) : !s.isFinalSaved ? (
+                              <button
+                                className="btn btn-sm btn-outline-danger py-0 px-1 fw-bold"
+                                title="اعتماد نهائي (Final Save)"
+                                style={{ fontSize: '0.72rem' }}
+                                onClick={() => handleFinalSave(s)}
+                              >
+                                🔒
+                              </button>
+                            ) : null}
+
+                            {(!s.isFinalSaved || user.isMainAdmin) ? (
+                              <>
+                                <button
+                                  className="btn btn-sm btn-outline-primary py-0 px-2"
+                                  title="تعديل"
+                                  onClick={() => openEditSessionModal(s)}
+                                >
+                                  ✏️
+                                </button>
+                                <button
+                                  className="btn btn-sm btn-outline-danger py-0 px-2"
+                                  title="حذف"
+                                  onClick={() => deleteSession(s.id)}
+                                >
+                                  🗑️
+                                </button>
+                              </>
+                            ) : (
+                              <span className="badge bg-secondary-subtle text-muted border" style={{ fontSize: '0.68rem' }}>
+                                🔒 مقفولة
+                              </span>
+                            )}
                           </div>
                         </td>
                       )}

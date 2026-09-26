@@ -77,6 +77,11 @@ router.post('/:id/madi', authMiddleware, async (req, res) => {
 
     const session = sessionRes.rows[0];
 
+    // فحص ما إذا كانت الجلسة معتمدة نهائياً
+    if (session.isFinalSaved && !req.user.isMainAdmin) {
+      return res.status(403).json({ message: 'هذه الجلسة معتمدة نهائياً (Final Save) ولا يمكن تعديل تسميعها إلا بواسطة الأدمن الرئيسي' });
+    }
+
     // 2. إذا كان المُسمّع طالب محفظ، نتأكد أنه ليس نفسه أو أحد إخوته
     if (req.user.role === 'student_teacher' || req.user.role === 'superadmin') {
       const siblingCheck = await checkSelfOrSibling(null, req.user.id, session.studentId);
@@ -135,6 +140,12 @@ router.post('/', authMiddleware, adminOnly, async (req, res) => {
   if (!studentId || !sessionDate)
     return res.status(400).json({ message: 'الطالب والتاريخ مطلوبان' });
 
+  // التحقق من أن التاريخ ليس في الماضي إلا للأدمن الرئيسي
+  const todayStr = new Date().toISOString().split('T')[0];
+  if (!req.user.isMainAdmin && sessionDate < todayStr) {
+    return res.status(400).json({ message: 'لا يمكن تسجيل جلسة بتاريخ سابق، مسموح فقط للأدمن الرئيسي' });
+  }
+
   try {
     const result = await query(`
       INSERT INTO "Sessions" (
@@ -169,6 +180,34 @@ router.post('/', authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
+// الاعتماد النهائي للجلسة (Final Save) - للأدمن فقط
+router.post('/:id/final-save', authMiddleware, adminOnly, async (req, res) => {
+  const sessionId = parseInt(req.params.id, 10);
+  try {
+    const sessionRes = await query('SELECT "id", "isFinalSaved" FROM "Sessions" WHERE "id" = $1', [sessionId]);
+    if (sessionRes.rows.length === 0) {
+      return res.status(404).json({ message: 'الجلسة غير موجودة' });
+    }
+    const session = sessionRes.rows[0];
+
+    // إذا كانت معتمدة، الأدمن الرئيسي فقط يستطيع فك الاعتماد
+    if (session.isFinalSaved && !req.user.isMainAdmin) {
+      return res.status(403).json({ message: 'هذه الجلسة معتمدة نهائياً، فقط الأدمن الرئيسي يمكنه فك الاعتماد' });
+    }
+
+    const newStatus = !session.isFinalSaved;
+    await query('UPDATE "Sessions" SET "isFinalSaved" = $1 WHERE "id" = $2', [newStatus, sessionId]);
+
+    res.json({
+      message: newStatus ? 'تم الاعتماد النهائي للجلسة بنجاح' : 'تم فك الاعتماد النهائي للجلسة',
+      isFinalSaved: newStatus
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'خطأ في الاعتماد النهائي للجلسة' });
+  }
+});
+
 // تعديل جلسة (أدمن فقط)
 router.put('/:id', authMiddleware, adminOnly, async (req, res) => {
   const {
@@ -179,6 +218,22 @@ router.put('/:id', authMiddleware, adminOnly, async (req, res) => {
   } = req.body;
 
   try {
+    const existingRes = await query('SELECT "id", "isFinalSaved" FROM "Sessions" WHERE "id" = $1', [req.params.id]);
+    if (existingRes.rows.length === 0) {
+      return res.status(404).json({ message: 'الجلسة غير موجودة' });
+    }
+
+    // إذا كانت الجلسة معتمدة نهائياً، فقط الأدمن الرئيسي يستطيع تعديلها
+    if (existingRes.rows[0].isFinalSaved && !req.user.isMainAdmin) {
+      return res.status(403).json({ message: 'هذه الجلسة معتمدة نهائياً (Final Save) ولا يمكن تعديلها إلا بواسطة الأدمن الرئيسي' });
+    }
+
+    // التحقق من أن التاريخ ليس في الماضي إلا للأدمن الرئيسي
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (!req.user.isMainAdmin && sessionDate && sessionDate < todayStr) {
+      return res.status(400).json({ message: 'لا يمكن تعديل تاريخ الجلسة إلى تاريخ سابق، مسموح فقط للأدمن الرئيسي' });
+    }
+
     await query(`
       UPDATE "Sessions" SET
         "sessionDate" = $1,
@@ -218,6 +273,16 @@ router.put('/:id', authMiddleware, adminOnly, async (req, res) => {
 // حذف جلسة (أدمن فقط)
 router.delete('/:id', authMiddleware, adminOnly, async (req, res) => {
   try {
+    const existingRes = await query('SELECT "id", "isFinalSaved" FROM "Sessions" WHERE "id" = $1', [req.params.id]);
+    if (existingRes.rows.length === 0) {
+      return res.status(404).json({ message: 'الجلسة غير موجودة' });
+    }
+
+    // إذا كانت الجلسة معتمدة نهائياً، فقط الأدمن الرئيسي يستطيع حذفها
+    if (existingRes.rows[0].isFinalSaved && !req.user.isMainAdmin) {
+      return res.status(403).json({ message: 'هذه الجلسة معتمدة نهائياً (Final Save) ولا يمكن حذفها إلا بواسطة الأدمن الرئيسي' });
+    }
+
     await query('DELETE FROM "Sessions" WHERE "id" = $1', [req.params.id]);
     res.json({ message: 'تم حذف الجلسة' });
   } catch (err) {

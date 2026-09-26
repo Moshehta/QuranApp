@@ -11,7 +11,7 @@ export default function StudentAssignments({ user }) {
 
   // المستخدم المختار
   const [selectedUserId, setSelectedUserId] = useState('');
-  const [userRoleFilter, setUserRoleFilter] = useState('student_teacher'); // افتراضياً التركيز على الطلاب المحفظين
+  const [userRoleFilter, setUserRoleFilter] = useState('student_teacher');
   const [userSearch, setUserSearch] = useState('');
 
   // الطلاب المحددين للمستخدم المختار
@@ -23,7 +23,6 @@ export default function StudentAssignments({ user }) {
   // بحث وفلترة الطلاب
   const [studentSearch, setStudentSearch] = useState('');
 
-  // التحقق من صلاحية الأدمن
   useEffect(() => {
     if (!user || (user.role !== 'admin' && !user.isMainAdmin)) {
       navigate('/');
@@ -46,7 +45,6 @@ export default function StudentAssignments({ user }) {
       setUsers(usersRes.data || []);
       setStudents(studentsRes.data || []);
 
-      // إذا لم يكن هناك مستخدم محدد بعد، نحدد أول طالب محفظ إن وجد
       if (!selectedUserId) {
         const firstStudentTeacher = usersRes.data.find(
           u => u.role === 'student_teacher' || u.role === 'superadmin'
@@ -65,7 +63,6 @@ export default function StudentAssignments({ user }) {
     }
   };
 
-  // عند تغيير المستخدم المختار، نجلب الطلاب المسندين له
   useEffect(() => {
     if (!selectedUserId) {
       setAssignedStudentIds([]);
@@ -89,10 +86,8 @@ export default function StudentAssignments({ user }) {
     }
   };
 
-  // المستخدم الحالي المحدد
   const selectedUser = users.find(u => String(u.id) === String(selectedUserId));
 
-  // فلترة قائمة المستخدمين
   const filteredUsers = users.filter(u => {
     const matchesRole =
       userRoleFilter === 'all'
@@ -109,7 +104,6 @@ export default function StudentAssignments({ user }) {
     return matchesRole && matchesSearch;
   });
 
-  // فلترة قائمة الطلاب
   const filteredStudents = students.filter(s => {
     if (!studentSearch.trim()) return true;
     const query = studentSearch.trim().toLowerCase();
@@ -118,31 +112,26 @@ export default function StudentAssignments({ user }) {
     return nameMatch || codeMatch;
   });
 
-  // تبديل اختيار طالب
   const toggleStudent = (id) => {
     setAssignedStudentIds(prev =>
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
   };
 
-  // تحديد الكل (المعروضين في البحث)
   const handleSelectAll = () => {
     const idsToAdd = filteredStudents.map(s => s.id);
     setAssignedStudentIds(prev => Array.from(new Set([...prev, ...idsToAdd])));
   };
 
-  // إلغاء تحديد الكل (المعروضين في البحث)
   const handleDeselectAll = () => {
     const idsToRemove = new Set(filteredStudents.map(s => s.id));
     setAssignedStudentIds(prev => prev.filter(id => !idsToRemove.has(id)));
   };
 
-  // تفريغ الاختيار بالكامل لجعله يرى الجميع (افتراضي للطالب المحفظ)
   const handleClearAll = () => {
     setAssignedStudentIds([]);
   };
 
-  // حفظ التوزيع
   const handleSave = async () => {
     if (!selectedUserId) return;
     setSaving(true);
@@ -153,12 +142,11 @@ export default function StudentAssignments({ user }) {
       });
       setFeedback({
         type: 'success',
-        text: `تم حفظ توزيع الطلاب للمستخدم "${selectedUser?.name || ''}" بنجاح!`,
+        text: `تم حفظ توزيع الطلاب للمستخدم "${selectedUser?.name || ''}" بنجاح`,
       });
-      // إخفاء رسالة النجاح بعد 4 ثواني
       setTimeout(() => {
         setFeedback(prev => (prev.type === 'success' ? { type: '', text: '' } : prev));
-      }, 4000);
+      }, 3500);
     } catch (err) {
       console.error(err);
       setFeedback({
@@ -198,25 +186,20 @@ export default function StudentAssignments({ user }) {
   const isAdminUser = selectedUser?.role === 'admin';
 
   return (
-    <div className="container py-4" style={{ maxWidth: 1100 }}>
+    <div className="container py-3 py-md-4" style={{ maxWidth: 1100, paddingBottom: 85 }}>
       {/* عنوان الصفحة */}
-      <div className="card shadow-sm border-0 mb-4 rounded-3 bg-success text-white">
-        <div className="card-body p-3 p-md-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
-          <div>
-            <div className="d-flex align-items-center gap-2 mb-1">
-              <span className="fs-3">📋</span>
-              <h4 className="fw-bold mb-0">شاشة توزيع وصلاحيات الطلاب</h4>
-            </div>
-            <p className="mb-0 opacity-75 small">
-              تحديد الطلاب المسموح لكل مستخدم (طالب محفظ أو ولي أمر أو طالب) بمتابعتهم ورؤيتهم والتسميع لهم.
-            </p>
+      <div className="card shadow-sm border-0 mb-3 rounded-3 bg-success text-white">
+        <div className="card-body p-3 d-flex justify-content-between align-items-center">
+          <div className="d-flex align-items-center gap-2">
+            <span className="fs-4">📋</span>
+            <h5 className="fw-bold mb-0">توزيع وصلاحيات الطلاب</h5>
           </div>
           <button
-            className="btn btn-light text-success fw-bold px-3 py-2 rounded-pill shadow-sm"
+            className="btn btn-sm btn-light text-success fw-bold px-3 py-1 rounded-pill shadow-sm"
             onClick={loadInitialData}
             title="تحديث البيانات"
           >
-            🔄 تحديث البيانات
+            🔄 تحديث
           </button>
         </div>
       </div>
@@ -224,10 +207,10 @@ export default function StudentAssignments({ user }) {
       {/* تنبيه بالرسائل */}
       {feedback.text && (
         <div
-          className={`alert alert-${feedback.type} alert-dismissible fade show shadow-sm rounded-3 d-flex align-items-center justify-content-between`}
+          className={`alert alert-${feedback.type} alert-dismissible fade show shadow-sm rounded-3 d-flex align-items-center justify-content-between py-2 px-3 mb-3`}
           role="alert"
         >
-          <div>
+          <div className="small fw-semibold">
             {feedback.type === 'success' ? '✅ ' : '⚠️ '}
             {feedback.text}
           </div>
@@ -239,30 +222,59 @@ export default function StudentAssignments({ user }) {
         </div>
       )}
 
-      {/* الملاحظة التوضيحية عن الوضع الافتراضي */}
-      <div className="alert alert-light border shadow-sm rounded-3 mb-4">
-        <div className="d-flex gap-2">
-          <span className="fs-5">💡</span>
-          <div className="small text-muted">
-            <strong className="text-dark">كيف يعمل توزيع الطلاب؟</strong>
-            <ul className="mb-0 mt-1 pe-3">
-              <li>
-                <strong>الأدمن:</strong> يرى ويعدل على جميع الطلاب تلقائياً دائماً دون قيود.
-              </li>
-              <li>
-                <strong>الطلاب المحفظون (الوضع الافتراضي):</strong> إذا لم تقم بتحديد طلاب له (القائمة فارغة 0)، فسيرى <strong>جميع طلاب المقرأة تلقائياً</strong> ويستطيع التسميع لهم.
-              </li>
-              <li>
-                <strong>تقييد المحفظ أو ولي الأمر:</strong> بمجرد تحديد طالب أو أكثر وحفظ التوزيع، سيقتصر حسابه فقط على رؤية الطلاب الذين حددتهم له.
-              </li>
-            </ul>
-          </div>
+      {/* قسم اختيار المستخدم على الموبايل (مضغوط وسلس جداً) */}
+      <div className="d-block d-lg-none card shadow-sm border-0 rounded-3 mb-3 p-3">
+        <label className="form-label fw-bold small text-dark mb-2">1️⃣ اختر المستخدم:</label>
+        
+        {/* أزرار الفلترة السريعة */}
+        <div className="btn-group w-100 mb-2" role="group">
+          <button
+            type="button"
+            className={`btn btn-sm ${userRoleFilter === 'student_teacher' ? 'btn-primary' : 'btn-outline-primary'}`}
+            onClick={() => setUserRoleFilter('student_teacher')}
+          >
+            محفظين
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm ${userRoleFilter === 'parent' ? 'btn-primary' : 'btn-outline-primary'}`}
+            onClick={() => setUserRoleFilter('parent')}
+          >
+            أولياء أمور
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm ${userRoleFilter === 'student' ? 'btn-primary' : 'btn-outline-primary'}`}
+            onClick={() => setUserRoleFilter('student')}
+          >
+            طلاب
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm ${userRoleFilter === 'all' ? 'btn-primary' : 'btn-outline-primary'}`}
+            onClick={() => setUserRoleFilter('all')}
+          >
+            الكل
+          </button>
         </div>
+
+        {/* قائمة منسدلة لاختيار المستخدم مباشرة بضغطة واحدة */}
+        <select
+          className="form-select form-select-md fw-bold border-success rounded-3 shadow-2xs"
+          value={selectedUserId}
+          onChange={(e) => setSelectedUserId(e.target.value)}
+        >
+          {filteredUsers.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.name} (@{u.username}) — [{getRoleLabel(u.role)}]
+            </option>
+          ))}
+        </select>
       </div>
 
-      <div className="row g-4">
-        {/* العمود الأيمن: اختيار المستخدم */}
-        <div className="col-12 col-lg-4">
+      <div className="row g-3">
+        {/* العمود الأيمن على الشاشات الكبيرة (Desktop Sidebar) */}
+        <div className="d-none d-lg-block col-lg-4">
           <div className="card shadow-sm border-0 rounded-3 sticky-top" style={{ top: 20 }}>
             <div className="card-header bg-white border-0 pt-3 pb-2">
               <h6 className="fw-bold text-dark mb-0">1️⃣ اختر المستخدم</h6>
@@ -275,7 +287,7 @@ export default function StudentAssignments({ user }) {
                   className={`btn btn-sm ${userRoleFilter === 'student_teacher' ? 'btn-primary' : 'btn-outline-primary'}`}
                   onClick={() => setUserRoleFilter('student_teacher')}
                 >
-                  طلاب محفظين
+                  محفظين
                 </button>
                 <button
                   type="button"
@@ -301,11 +313,11 @@ export default function StudentAssignments({ user }) {
               </div>
 
               {/* بحث المستخدمين */}
-              <div className="mb-3">
+              <div className="mb-2">
                 <input
                   type="text"
                   className="form-control form-control-sm rounded-pill"
-                  placeholder="🔍 بحث بالاسم أو اسم المستخدم..."
+                  placeholder="🔍 بحث بالاسم أو المستخدم..."
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
                 />
@@ -373,7 +385,7 @@ export default function StudentAssignments({ user }) {
                   </div>
 
                   <button
-                    className="btn btn-success fw-bold px-4 py-2 rounded-pill shadow-sm d-flex align-items-center gap-2 justify-content-center"
+                    className="btn btn-success fw-bold px-4 py-2 rounded-pill shadow-sm d-none d-sm-flex align-items-center gap-2 justify-content-center"
                     onClick={handleSave}
                     disabled={saving || loadingAssignments}
                   >
@@ -401,16 +413,16 @@ export default function StudentAssignments({ user }) {
                     ) : isTeacher ? (
                       assignedStudentIds.length === 0 ? (
                         <span className="badge bg-success-subtle text-success border border-success fs-6">
-                          🌟 الوضع الافتراضي: غير مقيد (يرى ويسمّع لجميع {students.length} طالب)
+                          🌟 غير مقيد (يرى ويسمّع لجميع {students.length} طالب)
                         </span>
                       ) : (
                         <span className="badge bg-warning-subtle text-warning-emphasis border border-warning fs-6">
-                          🔒 مقيد: يرى فقط {assignedStudentIds.length} من أصل {students.length} طالب
+                          🔒 مقيد بـ {assignedStudentIds.length} من {students.length} طالب
                         </span>
                       )
                     ) : (
                       <span className="badge bg-info-subtle text-info-emphasis border border-info fs-6">
-                        👥 مسند إليه {assignedStudentIds.length} من أصل {students.length} طالب
+                        👥 مسند إليه {assignedStudentIds.length} من {students.length} طالب
                       </span>
                     )}
                   </div>
@@ -423,8 +435,8 @@ export default function StudentAssignments({ user }) {
 
               <div className="card-body p-3">
                 {/* أدوات التحكم السريع والبحث */}
-                <div className="d-flex flex-column flex-md-row gap-2 justify-content-between align-items-md-center mb-3">
-                  <div className="d-flex align-items-center gap-2 flex-wrap">
+                <div className="d-flex flex-column flex-sm-row gap-2 justify-content-between align-items-sm-center mb-3">
+                  <div className="d-flex align-items-center gap-1 flex-wrap">
                     <button
                       type="button"
                       className="btn btn-outline-success btn-sm rounded-pill fw-bold"
@@ -439,7 +451,7 @@ export default function StudentAssignments({ user }) {
                       onClick={handleDeselectAll}
                       title="إلغاء التحديد للطلاب المعروضين"
                     >
-                      ❌ إلغاء التحديد
+                      ❌ إلغاء
                     </button>
                     {isTeacher && assignedStudentIds.length > 0 && (
                       <button
@@ -448,17 +460,17 @@ export default function StudentAssignments({ user }) {
                         onClick={handleClearAll}
                         title="إلغاء التقييد ليتمكن من رؤية جميع الطلاب افتراضياً"
                       >
-                        🌐 جعله يرى الجميع (إلغاء التقييد)
+                        🌐 يرى الجميع
                       </button>
                     )}
                   </div>
 
                   {/* شريط البحث في الطلاب */}
-                  <div style={{ minWidth: 240 }}>
+                  <div className="w-100 w-sm-auto" style={{ minWidth: 200 }}>
                     <input
                       type="text"
                       className="form-control form-control-sm rounded-pill"
-                      placeholder="🔍 ابحث بالاسم أو كود الطالب..."
+                      placeholder="🔍 بحث بالاسم أو الكود..."
                       value={studentSearch}
                       onChange={(e) => setStudentSearch(e.target.value)}
                     />
@@ -497,12 +509,13 @@ export default function StudentAssignments({ user }) {
                                   type="checkbox"
                                   className="form-check-input mt-0"
                                   checked={isChecked}
-                                  onChange={() => {}} // controlled via card onClick
+                                  onChange={() => {}}
                                   style={{
                                     cursor: 'pointer',
-                                    width: 18,
-                                    height: 18,
+                                    width: 20,
+                                    height: 20,
                                     accentColor: '#198754',
+                                    flexShrink: 0
                                   }}
                                 />
                                 <div className="text-truncate">
@@ -522,7 +535,7 @@ export default function StudentAssignments({ user }) {
                                 className={`badge rounded-pill ${
                                   isChecked ? 'bg-success text-white' : 'bg-secondary-subtle text-secondary'
                                 }`}
-                                style={{ fontSize: '0.68rem' }}
+                                style={{ fontSize: '0.68rem', flexShrink: 0 }}
                               >
                                 {isChecked ? 'مُسند إليه' : 'غير مُسند'}
                               </span>
@@ -535,8 +548,8 @@ export default function StudentAssignments({ user }) {
                 )}
               </div>
 
-              {/* شريط الحفظ السفلي */}
-              <div className="card-footer bg-white border-0 p-3 d-flex justify-content-between align-items-center">
+              {/* شريط الحفظ السفلي على Desktop */}
+              <div className="card-footer bg-white border-0 p-3 d-none d-sm-flex justify-content-between align-items-center">
                 <span className="small text-muted">
                   تم تحديد <strong>{assignedStudentIds.length}</strong> طالب
                 </span>
@@ -552,11 +565,43 @@ export default function StudentAssignments({ user }) {
           ) : (
             <div className="card shadow-sm border-0 rounded-3 p-5 text-center text-muted">
               <div className="fs-1">👈</div>
-              <h5>برجاء اختيار مستخدم من القائمة اليمنى</h5>
+              <h5>برجاء اختيار مستخدم من القائمة</h5>
             </div>
           )}
         </div>
       </div>
+
+      {/* شريط الحفظ العائم الثابت في الأسفل على الموبايل */}
+      {selectedUser && (
+        <div
+          className="fixed-bottom bg-white border-top shadow-lg p-2 px-3 d-flex d-sm-none justify-content-between align-items-center"
+          style={{ zIndex: 1040 }}
+        >
+          <div>
+            <div className="fw-bold small text-dark">{selectedUser.name}</div>
+            <div className="text-muted" style={{ fontSize: '0.75rem' }}>
+              محدد: <strong className="text-success">{assignedStudentIds.length}</strong> طالب
+            </div>
+          </div>
+          <button
+            className="btn btn-success fw-bold px-4 py-2 rounded-pill shadow-sm d-flex align-items-center gap-1"
+            onClick={handleSave}
+            disabled={saving || loadingAssignments}
+          >
+            {saving ? (
+              <>
+                <span className="spinner-border spinner-border-sm" />
+                <span>جاري الحفظ...</span>
+              </>
+            ) : (
+              <>
+                <span>💾</span>
+                <span>حفظ التوزيع</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

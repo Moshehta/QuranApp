@@ -151,6 +151,11 @@ router.post('/', authMiddleware, adminOnly, async (req, res) => {
     return res.status(400).json({ message: 'اسم الطالب، السن، اسم ولي الأمر 1، ورقم تليفون ولي الأمر 1 حقول إلزامية' });
   }
 
+  const todayStr = new Date().toISOString().split('T')[0];
+  if (!req.user.isMainAdmin && joinDate && joinDate < todayStr) {
+    return res.status(400).json({ message: 'لا يمكن تسجيل تاريخ انضمام سابق، مسموح فقط للأدمن الرئيسي' });
+  }
+
   try {
     // توليد كود الطالب (يبدأ من 100 ويزداد تلقائياً)
     const codesResult = await query('SELECT "studentCode" FROM "Students"');

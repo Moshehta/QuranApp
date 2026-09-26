@@ -197,8 +197,14 @@ export default function AddSession({ user }) {
         <div className="card shadow-sm border-0 mb-3 rounded-3">
           <div className="card-body p-3">
             <label className="form-label fw-semibold">📅 تاريخ جلسة اليوم</label>
-            <input type="date" className="form-control" value={form.sessionDate}
-              onChange={e => set('sessionDate', e.target.value)} required />
+            <input
+              type="date"
+              className="form-control"
+              value={form.sessionDate}
+              min={!user?.isMainAdmin ? new Date().toISOString().split('T')[0] : undefined}
+              onChange={e => set('sessionDate', e.target.value)}
+              required
+            />
           </div>
         </div>
 

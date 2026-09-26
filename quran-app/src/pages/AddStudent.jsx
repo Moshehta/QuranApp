@@ -194,6 +194,7 @@ export default function AddStudent() {
                 type="date"
                 className="form-control"
                 value={form.joinDate}
+                min={!user?.isMainAdmin ? new Date().toISOString().split('T')[0] : undefined}
                 onChange={e => set('joinDate', e.target.value)}
               />
             </div>
