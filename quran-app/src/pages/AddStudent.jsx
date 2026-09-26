@@ -10,7 +10,7 @@ const getTodayDate = () => {
   return `${year}-${month}-${day}`;
 };
 
-export default function AddStudent() {
+export default function AddStudent({ user }) {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     name: '',
