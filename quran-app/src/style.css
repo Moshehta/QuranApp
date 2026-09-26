@@ -294,3 +294,14 @@ code {
     border-right-color: var(--border);
   }
 }
+
+/* إخفاء شريط أدوات Vercel التلقائي */
+vercel-live-feedback,
+[data-vercel-toolbar],
+#vercel-live-feedback,
+.__vercel-toolbar {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
